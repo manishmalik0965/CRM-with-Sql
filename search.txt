@@ -1,0 +1,172 @@
+132-        destination,
+133-        cabinClass,
+134-        tripType,
+135-        departureDate,
+136-        arrivalDate,
+137:        multiCitySegments: tripType === 'Multi-City' ? multiCitySegments : [],
+138-        ancillaryServices,
+139-        remarks: finalRemarks,
+140-        status: finalStatus,
+141-        agentId: auth.currentUser?.uid,
+142-      };
+--
+330-          origin,
+331-          destination,
+332-          tripType,
+333-          departureDate,
+334-          arrivalDate,
+335:          multiCitySegments: tripType === 'Multi-City' ? multiCitySegments : [],
+336-          cabinClass,
+337-          pnr,
+338-          passengers,
+339-          contact,
+340-          validatedGateway,
+--
+389-  const [validatedGateway, setValidatedGateway] = useState('');
+390-  const [cabinClass, setCabinClass] = useState('Economy');
+391-  const [tripType, setTripType] = useState('One-Way');
+392-  const [departureDate, setDepartureDate] = useState('');
+393-  const [arrivalDate, setArrivalDate] = useState('');
+394:  const [multiCitySegments, setMultiCitySegments] = useState<{ id: number, origin: string, destination: string, departureDate: string }[]>([
+395-    { id: Date.now(), origin: '', destination: '', departureDate: '' },
+396-    { id: Date.now() + 1, origin: '', destination: '', departureDate: '' }
+397-  ]);
+398-  const [ancillaryServices, setAncillaryServices] = useState<string[]>([]);
+399-  const [remarks, setRemarks] = useState('');
+--
+491-          setValidatedGateway(data.validatedGateway || '');
+492-          setCabinClass(data.cabinClass || 'Economy');
+493-          setTripType(data.tripType || 'One-Way');
+494-          setDepartureDate(data.departureDate || '');
+495-          setArrivalDate(data.arrivalDate || '');
+496:          if (data.multiCitySegments && data.multiCitySegments.length > 0) {
+497:            setMultiCitySegments(data.multiCitySegments);
+498-          }
+499-          setAncillaryServices(data.ancillaryServices || []);
+500-          setRemarks(data.remarks || '');
+501-          setPayment({ 
+502-            ccNumber: data.cardNumber || (data.cardNumberMasked ? 'XXXX-XXXX-XXXX-' + data.cardNumberMasked : ''), 
+--
+631-        destination,
+632-        cabinClass,
+633-        tripType,
+634-        departureDate,
+635-        arrivalDate,
+636:        multiCitySegments: tripType === 'Multi-City' ? multiCitySegments : [],
+637-        ancillaryServices,
+638-        packageRichText,
+639-        validatedGateway,
+640-        agentId: auth.currentUser?.uid,
+641-      };
+--
+815-              origin,
+816-              destination,
+817-              tripType,
+818-              departureDate,
+819-              arrivalDate,
+820:              multiCitySegments: tripType === 'Multi-City' ? multiCitySegments : [],
+821-              cabinClass,
+822-              pnr,
+823-              passengers,
+824-              contact,
+825-              validatedGateway,
+--
+1243-                  </div>
+1244-
+1245-                  {tripType === 'Multi-City' ? (
+1246-                    <div className="space-y-4 pt-2">
+1247-                       <label className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-1.5 block">Flight Segments</label>
+1248:                       {multiCitySegments.map((segment, index) => (
+1249-                         <div key={segment.id} className="flex gap-4 items-center">
+1250-                           <div className="flex-1">
+1251-                             <input 
+1252-                               type="date" 
+1253-                               value={segment.departureDate} 
+1254-                               onChange={(e) => {
+1255:                                 const updated = [...multiCitySegments];
+1256-                                 updated[index].departureDate = e.target.value;
+1257-                                 setMultiCitySegments(updated);
+1258-                               }}
+1259-                               className="w-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 rounded-lg px-4 py-2.5 text-xs focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900 outline-none"
+1260-                             />
+--
+1263-                             <input 
+1264-                               type="text" 
+1265-                               placeholder="Origin (e.g. LHR)" 
+1266-                               value={segment.origin} 
+1267-                               onChange={(e) => {
+1268:                                 const updated = [...multiCitySegments];
+1269-                                 updated[index].origin = e.target.value.toUpperCase();
+1270-                                 setMultiCitySegments(updated);
+1271-                               }}
+1272-                               className="w-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 rounded-lg px-4 py-2.5 text-xs uppercase focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900 outline-none"
+1273-                             />
+--
+1276-                             <input 
+1277-                               type="text" 
+1278-                               placeholder="Destination (e.g. JFK)" 
+1279-                               value={segment.destination} 
+1280-                               onChange={(e) => {
+1281:                                 const updated = [...multiCitySegments];
+1282-                                 updated[index].destination = e.target.value.toUpperCase();
+1283-                                 setMultiCitySegments(updated);
+1284-                               }}
+1285-                               className="w-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 rounded-lg px-4 py-2.5 text-xs uppercase focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900 outline-none"
+1286-                             />
+1287-                           </div>
+1288-                           <Button 
+1289-                             variant="ghost" 
+1290-                             size="icon" 
+1291-                             className="h-8 w-8 text-red-500 hover:bg-red-50"
+1292:                             onClick={() => setMultiCitySegments(multiCitySegments.filter(s => s.id !== segment.id))}
+1293-                           >
+1294-                              <Trash2 className="w-4 h-4" />
+1295-                           </Button>
+1296-                         </div>
+1297-                       ))}
+1298-                       <Button 
+1299-                         variant="outline" 
+1300-                         size="sm" 
+1301:                         onClick={() => setMultiCitySegments([...multiCitySegments, { id: Date.now(), origin: '', destination: '', departureDate: '' }])}
+1302-                         className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-600"
+1303-                       >
+1304-                         <Plus className="w-3 h-3" /> Add Segment
+1305-                       </Button>
+1306-                    </div>
+--
+1813-            <div ref={previewRef} className="bg-white dark:bg-slate-900 h-full w-full rounded-2xl shadow-2xl flex flex-col overflow-hidden transform group-hover:scale-[1.015] transition-all duration-700 ease-out border border-slate-100 dark:border-slate-800">
+1814-               {/* Traveling Details Bar in Preview */}
+1815-               <div className="bg-blue-600 text-white p-4 text-center border-b-[3px] border-blue-700">
+1816-                  <div className="text-[8px] font-black uppercase tracking-[0.25em] opacity-80 mb-1">Travelling Details</div>
+1817-                  <div className="text-[11px] font-black uppercase tracking-widest flex items-center justify-center gap-3">
+1818:                    {tripType === 'Multi-City' && multiCitySegments && multiCitySegments.length > 0 ? (
+1819-                      <>
+1820:                        {multiCitySegments.map((s, i) => (
+1821-                           <React.Fragment key={i}>
+1822-                             <span>{(s.origin || 'TBD').toUpperCase()}</span>
+1823-                             <span className="opacity-50 text-[10px]">⤨</span>
+1824-                             <span>{(s.destination || 'TBD').toUpperCase()}</span>
+1825:                             {i !== multiCitySegments.length - 1 && <span className="opacity-30 text-[10px] mx-1">|</span>}
+1826-                           </React.Fragment>
+1827-                        ))}
+1828-                      </>
+1829-                    ) : (
+1830-                      <>
+--
+1890-                  <div className="text-[12px] text-slate-600 dark:text-slate-300 leading-relaxed font-medium transition-colors">
+1891-                    Dear <span className="text-slate-900 dark:text-slate-100 font-black">{passengers.map(p => p.name).filter(n => n).join(', ') || 'Jonathan Harrison'}</span>,<br/><br/>
+1892-                    Your secure reservation for <strong>{passengers.length} passenger{passengers.length !== 1 ? 's' : ''}</strong> totaling <strong>{pricing.currency} {pricing.total.toLocaleString()}</strong> with <span className="text-slate-900 dark:text-slate-100 font-bold">{airlineName || 'SkyWay Partners'}</span> has been initialized.{validatedGateway ? <> The payment arrangement has been set up via <strong className="font-bold text-slate-900 dark:text-slate-100 uppercase" dangerouslySetInnerHTML={{ __html: validatedGateway }}></strong>.</> : ''} To proceed with electronic ticket issuance, please verify the financial details and authorize below.<br/><br/>
+1893-
+1894-                  <div className="bg-slate-50/80 dark:bg-slate-800/80 p-6 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm space-y-4 backdrop-blur-sm transition-colors">
+1895:                    {(pnr || cabinClass || ancillaryServices.length > 0 || packageRichText || origin || destination || multiCitySegments.length > 0) && (
+1896-                      <div className="border-b border-slate-200 dark:border-slate-700 pb-3 space-y-2">
+1897-                         <span className="text-[10px] text-slate-400 dark:text-slate-500 uppercase font-black tracking-[0.2em]">Itinerary Details</span>
+1898-                         <div className="grid grid-cols-2 gap-x-8 gap-y-2">
+1899:                            {tripType === 'Multi-City' && multiCitySegments.length > 0 ? (
+1900-                               <div className="col-span-2 space-y-2 text-[11px] font-bold text-slate-900 dark:text-slate-100 border-b border-slate-100 dark:border-slate-700 pb-2">
+1901:                                  {multiCitySegments.map((s, idx) => (
+1902-                                    <div key={idx} className="flex justify-between items-center bg-white/50 dark:bg-slate-900/50 p-2 rounded-lg border border-slate-100 dark:border-slate-800">
+1903-                                      <div className="flex gap-2 items-center">
+1904-                                         <span className="text-[9px] text-slate-400 font-bold uppercase tracking-widest w-16">Leg {idx + 1}</span>
+1905-                                         <span>{(s.origin || 'TBD').toUpperCase()} &rarr; {(s.destination || 'TBD').toUpperCase()}</span>
+1906-                                      </div>

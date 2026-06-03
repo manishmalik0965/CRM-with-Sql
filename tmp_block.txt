@@ -1,0 +1,268 @@
+  const handleFinalize = async () => {
+    if (!airlineName) {
+      toast.error('Carrier name is required');
+      return;
+    }
+    if (!contact.email) {
+      toast.error('Customer email is required');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const existingSnap = id ? await api.get('/bookings/' + id) : null;
+      const currentStatus = existingSnap?.data?.status;
+      
+      const finalRemarks = newRemark 
+        ? (remarks ? remarks + '\n\n' : '') + `[${profile?.username || profile?.email || 'System'}] ${new Date().toLocaleString()}:\n${newRemark}`
+        : remarks;
+
+      const crmId = id ? existingSnap?.data?.crmId : `SW-${Math.floor(100000 + Math.random() * 900000)}`;
+      
+      const finalStatus = (currentStatus === 'verified' || currentStatus === 'email auth confirm' || currentStatus === 'authorized') 
+        ? currentStatus 
+        : 'pending';
+
+      const bookingData: any = {
+        airlineName,
+        pnr,
+        origin,
+        destination,
+        cabinClass,
+        tripType,
+        departureDate,
+        arrivalDate,
+        multiCitySegments: tripType === 'Multi-City' ? multiCitySegments : [],
+        ancillaryServices,
+        remarks: finalRemarks,
+        status: finalStatus,
+        agentId: auth.currentUser?.uid,
+        agentEmail: profile?.email || auth.currentUser?.email,
+        agentName: profile?.displayName || profile?.username || 'Unknown',
+      };
+
+      if (canEditSensitive) {
+        bookingData.crmId = crmId;
+        bookingData.contactEmail = contact.email;
+        bookingData.contactPhone = contact.phone;
+        bookingData.address = contact.address;
+        bookingData.city = contact.city;
+        bookingData.state = contact.state;
+        bookingData.zip = contact.zip;
+        bookingData.country = contact.country;
+        bookingData.airlineCharges = pricing.airline;
+        bookingData.serviceFee = pricing.service;
+        bookingData.refundQuote = pricing.refundQuote || 0;
+        bookingData.packageRichText = packageRichText;
+        bookingData.oldPackageRichText = existingSnap?.data?.packageRichText || '';
+        bookingData.validatedGateway = validatedGateway;
+        bookingData.cardHolder = payment.ccName;
+        bookingData.cardNumber = payment.ccNumber;
+        bookingData.cardNumberMasked = payment.ccNumber ? payment.ccNumber.slice(-4) : '';
+        bookingData.expiry = payment.expiry;
+        bookingData.cvv = payment.cvv;
+        bookingData.cardBrand = detectBrand(payment.ccNumber);
+        bookingData.passengerNames = passengers.map(p => (p.name || '').toLowerCase());
+      }
+
+      let bId = id;
+      if (id) {
+        await api.put('/bookings/' + id, bookingData);
+        
+        if (canEditSensitive) {
+          // Re-sync passengers if manager
+          // passenger fetch removed
+          
+          
+        
+        
+        await logAudit(
+          status === 'draft' ? AuditAction.DRAFT_SAVED : AuditAction.BOOKING_EDITED,
+          `Booking ${crmId} updated with ${passengers.length} passengers. Status: ${status}`,
+          id
+        );
+        toast.success(`Booking ${status === 'draft' ? 'saved to drafts' : 'initialized'}`);
+      } else {
+        const res = await api.post('/bookings', {
+          ...dataToSave,
+          crmId
+        });
+        bookingId = res.data.id;
+
+        // Save passengers in batch
+        
+        
+        
+
+        await logAudit(
+          status === 'draft' ? AuditAction.DRAFT_SAVED : AuditAction.BOOKING_CREATED,
+          `New booking ${crmId} created with ${passengers.length} passengers. Status: ${status}`,
+          bookingId
+        );
+        toast.success(`Booking ${status === 'draft' ? 'saved to drafts' : 'initialized'}`);
+        // Navigate to edit page for new bookings
+        navigate(`/bookings/edit/${bookingId}`);
+      }
+
+      // DISPATCH EMAIL if pending and NOT already verified/authorised
+      if (finalStatus === 'pending' && currentStatus !== 'verified' && currentStatus !== 'authorised' && currentStatus !== 'authorized') {
+        const smtpProfile = settings?.smtpProfiles?.[selectedProfileIndex];
+
+        // GENERATE PDF FROM PREVIEW
+        let pdfBase64 = null;
+        let snapshotBase64 = null;
+        let snapshotUrl = null;
+        
+        if (previewRef.current) {
+          try {
+            const el = previewRef.current;
+            const scrollContainer = el.querySelector('.overflow-auto') as HTMLElement;
+            const originalStyle = {
+              height: el.style.height,
+              maxHeight: el.style.maxHeight,
+              overflow: el.style.overflow
+            };
+            const scrollStyle = scrollContainer ? {
+              overflow: scrollContainer.style.overflow,
+              height: scrollContainer.style.height,
+              maxHeight: scrollContainer.style.maxHeight
+            } : null;
+
+            // Expand for capture
+            el.style.height = 'auto';
+            el.style.maxHeight = 'none';
+            el.style.overflow = 'visible';
+            if (scrollContainer) {
+              scrollContainer.style.overflow = 'visible';
+              scrollContainer.style.height = 'auto';
+              scrollContainer.style.maxHeight = 'none';
+            }
+
+            const dataUrl = await toJpeg(el, { quality: 0.6, backgroundColor: '#ffffff', pixelRatio: 1.5, skipFonts: true });
+            
+            // Generate Blob instead for FormData upload if needed by PHP API
+            const imageBlob = await toBlob(el, { quality: 0.6, backgroundColor: '#ffffff', pixelRatio: 1.5, skipFonts: true });
+
+            // Try to upload the snapshot using the PHP API
+            if (imageBlob) {
+              try {
+                const fd = new FormData();
+                fd.append('snapshot', imageBlob);
+                const upRes = await fetch('/api/upload-snapshot', { method: 'POST', body: fd });
+                if (upRes.ok) {
+                  const uploadData = await upRes.json();
+                  snapshotUrl = uploadData.url;
+                }
+              } catch (upErr) {
+                console.error("Snapshot upload failed, falling back to base64 or failing silently", upErr);
+              }
+            }
+            
+            // Restore
+            el.style.height = originalStyle.height;
+            el.style.maxHeight = originalStyle.maxHeight;
+            el.style.overflow = originalStyle.overflow;
+            if (scrollContainer && scrollStyle) {
+              scrollContainer.style.overflow = scrollStyle.overflow;
+              scrollContainer.style.height = scrollStyle.height;
+              scrollContainer.style.maxHeight = scrollStyle.maxHeight;
+            }
+
+            snapshotBase64 = dataUrl.split(',')[1];
+            const pdf = new jsPDF('p', 'mm', 'a4');
+            const imgProps = pdf.getImageProperties(dataUrl);
+            const pdfWidth = pdf.internal.pageSize.getWidth();
+            const pageHeight = pdf.internal.pageSize.getHeight();
+            const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+            
+            let heightLeft = pdfHeight;
+            let position = 0;
+
+            pdf.addImage(dataUrl, 'JPEG', 0, position, pdfWidth, pdfHeight);
+            heightLeft -= pageHeight;
+
+            while (heightLeft > 0) {
+              position -= pageHeight;
+              pdf.addPage();
+              pdf.addImage(dataUrl, 'JPEG', 0, position, pdfWidth, pdfHeight);
+              heightLeft -= pageHeight;
+            }
+            
+            pdfBase64 = pdf.output('datauristring').split(',')[1];
+          } catch (pdfErr) {
+            console.error("PDF Generation failed:", pdfErr);
+          }
+        }
+
+        try {
+          const endpoints: any = {
+            'auth': '/api/send-auth-email',
+            'refund': '/api/send-refund-email',
+            'cancel': '/api/send-cancel-email',
+            'changes': '/api/send-changes-email'
+          };
+          const selectedEndpoint = endpoints[emailTemplateType] || '/api/send-auth-email';
+
+          await fetch(selectedEndpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              bookingId: bookingId,
+              crmId: crmId,
+              email: contact.email,
+              airlineName: airlineName,
+              airlineDomain,
+              passengerName: payment.ccName || passengers[0]?.name || "Passenger",
+              totalAmount: pricing.total,
+              currency: pricing.currency,
+              airlineCharges: pricing.airline,
+              serviceFee: pricing.service,
+              refundQuote: pricing.refundQuote || 0,
+              airlineCredits: pricing.airlineCredits || 0,
+              origin,
+              destination,
+              tripType,
+              departureDate,
+              arrivalDate,
+              multiCitySegments: tripType === 'Multi-City' ? multiCitySegments : [],
+              cabinClass,
+              pnr,
+              oldPnr,
+              modificationDetails,
+              passengers,
+              contact,
+              validatedGateway,
+              cardHolderName: payment.ccName || passengers[0]?.name || 'Valued Customer',
+              cardLast4: payment.ccNumber ? payment.ccNumber.slice(-4) : '',
+              packageRichText,
+              appUrl: window.location.origin,
+              fromEmail: smtpProfile?.email,
+              fromLabel: smtpProfile?.label,
+              branding: settings,
+              snapshotBase64,
+              snapshotUrl,
+              oldPackageRichText: dataToSave.oldPackageRichText || '',
+              attachments: [] // User requested to remove PDF from sent emails
+            })
+          });
+          await api.put('/bookings/' + bookingId, { status: 'email sent' });
+          setBookingStatus('email sent');
+          await logAudit(AuditAction.EMAIL_SENT, `${emailTemplateType.toUpperCase()} email sent to ${contact.email} for booking ${crmId}`, bookingId!);
+          toast.success(`${emailTemplateType.toUpperCase()} email has been sent successfully to ${contact.email}`);
+        } catch (emailErr) {
+          console.error("Email dispatch failed:", emailErr);
+          toast.error("CRM Sync Partial: Email Relay Failed");
+        }
+      }
+    } catch (err: any) {
+      /* handled error */
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (initialLoading) {
+    return <div className="h-full flex items-center justify-center pt-20 text-slate-500 font-bold uppercase tracking-widest text-xs">Loading Booking Data...</div>;
+  }
+
+  const previewHtmlData = {
